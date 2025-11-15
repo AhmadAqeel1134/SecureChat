@@ -682,6 +682,43 @@ When submitting on Google Classroom (GCR):
 4. **Report:** `RollNumber-FullName-Report-A02.docx`
 5. **Test Report:** `RollNumber-FullName-TestReport-A02.docx`
 
+### Exporting MySQL Schema Dump
+
+To export the database schema and sample records for submission:
+
+**Step 1: Ensure MySQL container is running**
+```bash
+docker ps
+```
+You should see `securechat-db` container running.
+
+**Step 2: Export schema and data**
+```bash
+docker exec securechat-db mysqldump -u user -p12345678 securechat > schema_dump.sql
+```
+
+**Step 3: Verify the dump file**
+```bash
+dir schema_dump.sql
+```
+
+**Expected Output:**
+- File `schema_dump.sql` should be created
+- Contains `CREATE TABLE` statements
+- Contains `INSERT` statements for sample users (if any exist)
+
+**Alternative: Export schema only (no data)**
+```bash
+docker exec securechat-db mysqldump -u user -p12345678 --no-data securechat > schema_only.sql
+```
+
+**Alternative: Export data only (no schema)**
+```bash
+docker exec securechat-db mysqldump -u user -p12345678 --no-create-info securechat > data_only.sql
+```
+
+**Note:** The `schema_dump.sql` file should be included in your submission ZIP.
+
 ## 📚 Additional Resources
 
 - **Certificate Inspection:**
