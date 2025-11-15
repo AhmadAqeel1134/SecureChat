@@ -95,7 +95,26 @@ def handle_client(sock: socket.socket, addr):
         send_message(sock, temp_dh_server.model_dump())
         
         # Handle register/login (encrypted under temp AES key)
-        encrypted_auth_data = receive_message(sock)
+        # First, check if client is requesting salt for login
+        auth_request = receive_message(sock)
+        
+        # Handle salt request for login
+        if auth_request.get('type') == 'get_salt':
+            email = auth_request.get('email')
+            if not email:
+                send_message(sock, {"error": "Missing email"})
+                return
+            salt = db.get_user_salt(email)
+            if salt:
+                send_message(sock, {"salt": b64e(salt)})
+            else:
+                send_message(sock, {"error": "User not found"})
+                return
+            # Receive encrypted login after salt request
+            encrypted_auth_data = receive_message(sock)
+        else:
+            encrypted_auth_data = auth_request
+        
         encrypted_payload = encrypted_auth_data.get('payload', '')
         if not encrypted_payload:
             send_message(sock, {"error": "Missing encrypted payload"})
