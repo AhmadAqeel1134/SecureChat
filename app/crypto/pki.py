@@ -1,7 +1,7 @@
 """X.509 certificate validation: CA signature, validity window, CN/SAN matching."""
 
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
@@ -72,7 +72,7 @@ def validate_certificate(
         raise ValueError(f"BAD_CERT: Certificate signature verification failed - {e}")
     
     # Verify validity window
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     if cert.not_valid_before_utc > now:
         raise ValueError("BAD_CERT: Certificate not yet valid")
     if cert.not_valid_after_utc < now:

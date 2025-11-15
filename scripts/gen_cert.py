@@ -6,7 +6,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography import x509
 from cryptography.x509.oid import NameOID, ExtendedKeyUsageOID
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 def issue_certificate(
@@ -46,9 +46,9 @@ def issue_certificate(
     ).serial_number(
         x509.random_serial_number()
     ).not_valid_before(
-        datetime.utcnow()
+        datetime.now(timezone.utc)
     ).not_valid_after(
-        datetime.utcnow() + timedelta(days=365)  # 1 year
+        datetime.now(timezone.utc) + timedelta(days=365)  # 1 year
     ).add_extension(
         x509.SubjectAlternativeName([
             x509.DNSName(cn)
