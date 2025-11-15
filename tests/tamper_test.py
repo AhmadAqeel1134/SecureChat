@@ -1,11 +1,17 @@
 """Tamper test: Modify ciphertext to demonstrate SIG_FAIL error."""
 
 import os
+import sys
 import json
 import socket
 import secrets
 import hashlib
 from pathlib import Path
+
+# Add project root to path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from dotenv import load_dotenv
 from app.common.protocol import Hello, ServerHello, DHClient, DHServer, Msg
 from app.common.utils import now_ms, b64e, b64d
@@ -96,10 +102,43 @@ def main():
         temp_shared_secret = dh.compute_shared_secret(temp_dh_server.B, temp_dh_private, dh.DEFAULT_P)
         temp_aes_key = dh.derive_key(temp_shared_secret)
         
-        # Login (assuming user exists)
+        # Login (required by server)
         print("\n=== TAMPER TEST ===")
-        print("Skipping login for test (assuming authenticated session)")
-        print("Proceeding to session key exchange...")
+        print("Performing login...")
+        
+        # Request salt for login
+        email = input("Enter email for login: ").strip()
+        password = input("Enter password: ").strip()
+        
+        send_message(sock, {'type': 'get_salt', 'email': email})
+        salt_response = receive_message(sock)
+        
+        if 'error' in salt_response or 'salt' not in salt_response:
+            print(f"Failed to get salt: {salt_response}")
+            return
+        
+        salt = b64d(salt_response['salt'])
+        pwd_hash = hashlib.sha256(salt + password.encode('utf-8')).hexdigest()
+        
+        login_data = {
+            'type': 'login',
+            'email': email,
+            'pwd': pwd_hash,
+            'nonce': b64e(secrets.token_bytes(16))
+        }
+        
+        encrypted_payload = aes.encrypt(
+            json.dumps(login_data).encode('utf-8'),
+            temp_aes_key
+        )
+        
+        send_message(sock, {'payload': encrypted_payload})
+        
+        login_response = receive_message(sock)
+        if 'error' in login_response:
+            print(f"Login failed: {login_response['error']}")
+            return
+        print("Login successful!")
         
         # Session DH exchange
         session_dh_private = dh.generate_private_key()
@@ -138,18 +177,24 @@ def main():
         
         # Now send tampered message
         print("\n2. Sending TAMPERED message (flipped bit in ciphertext)...")
-        tampered_ciphertext = tamper_ciphertext(ciphertext)  # Tamper with ciphertext
+        message2 = "This message will be tampered"
+        ciphertext2 = aes.encrypt(message2.encode('utf-8'), session_key)
         timestamp2 = now_ms()
         seqno2 = 2
         
-        # Signature is still over original ciphertext (not tampered one)
-        # This will cause signature verification to fail
+        # Create signature over ORIGINAL ciphertext
         seqno_bytes2 = seqno2.to_bytes(8, byteorder='big')
         ts_bytes2 = timestamp2.to_bytes(8, byteorder='big')
-        ct_bytes2 = tampered_ciphertext.encode('utf-8')
-        digest_data2 = seqno_bytes2 + ts_bytes2 + ct_bytes2
-        signature2 = sign.sign(digest_data2, client_key_path)
+        ct_bytes2_original = ciphertext2.encode('utf-8')
+        digest_data2 = seqno_bytes2 + ts_bytes2 + ct_bytes2_original
+        signature2 = sign.sign(digest_data2, client_key_path)  # Sign original
         
+        # NOW tamper the ciphertext AFTER signing
+        tampered_ciphertext = tamper_ciphertext(ciphertext2)  # Tamper AFTER signature created
+        
+        # Send tampered ciphertext with ORIGINAL signature
+        # Server will compute hash over tampered ciphertext, but signature is over original
+        # This will cause signature verification to fail
         tampered_msg = Msg(seqno=seqno2, ts=timestamp2, ct=tampered_ciphertext, sig=signature2)
         send_message(sock, tampered_msg.model_dump())
         
