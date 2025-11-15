@@ -316,10 +316,25 @@ def main():
             print(f"  First seq: {server_receipt.first_seq}")
             print(f"  Last seq: {server_receipt.last_seq}")
             print(f"  Transcript hash: {server_receipt.transcript_sha256}")
+            
+            # Save server receipt to file
+            server_receipt_path = Path(f"transcripts/server_receipt_{host}_{port}.json")
+            server_receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(server_receipt_path, 'w') as f:
+                json.dump(server_receipt_data, f, indent=2)
+            print(f"  Server receipt saved to: {server_receipt_path}")
+        
+        # Save client receipt to file
+        client_receipt_path = Path(f"transcripts/client_receipt_{host}_{port}.json")
+        client_receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(client_receipt_path, 'w') as f:
+            json.dump(receipt.model_dump(), f, indent=2)
+        print(f"\nClient receipt saved to: {client_receipt_path}")
         
         # Export transcript
-        transcript_logger.export()
-        print(f"\nSession completed. Transcript exported.")
+        transcript_export_path = transcript_logger.export()
+        print(f"Transcript exported to: {transcript_export_path}")
+        print(f"\nSession completed. All files saved in transcripts/ directory.")
         
     except Exception as e:
         print(f"Error: {e}")

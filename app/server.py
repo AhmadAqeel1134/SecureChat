@@ -283,9 +283,17 @@ def handle_client(sock: socket.socket, addr):
         )
         send_message(sock, receipt.model_dump())
         
+        # Save server receipt to file
+        receipt_path = Path(f"transcripts/server_receipt_{addr[0]}_{addr[1]}.json")
+        receipt_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(receipt_path, 'w') as f:
+            json.dump(receipt.model_dump(), f, indent=2)
+        print(f"Server receipt saved to: {receipt_path}")
+        
         # Export transcript
-        transcript_logger.export()
-        print(f"Session completed. Transcript exported.")
+        transcript_export_path = transcript_logger.export()
+        print(f"Transcript exported to: {transcript_export_path}")
+        print(f"Session completed. All files saved in transcripts/ directory.")
         
     except Exception as e:
         print(f"Error handling client: {e}")
